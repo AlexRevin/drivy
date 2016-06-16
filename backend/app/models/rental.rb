@@ -23,6 +23,23 @@ module Models
       (@end_date - @start_date).to_i + 1 # last day included
     end
 
+    def commission
+      profit = price * 0.3
+      [:insurance_fee, :assistance_fee, :drivy_fee].inject({}) do |sum, n|
+        case n
+        when :insurance_fee
+          sum[n] = (profit - (profit *= 0.5)).ceil # no extra penny for gangsters
+        when :assistance_fee
+          sum[n] = (profit - (profit -= 100 * duration )).ceil
+        else
+          # this is obviously not correct, watch Office Space movie
+          # for careful accounting, matters of cents do count as well
+          sum[n] = profit.floor
+        end
+        sum
+      end
+    end
+
     def price
       daily_prices = []
       (1..duration).each do |day|
