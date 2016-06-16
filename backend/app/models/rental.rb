@@ -24,7 +24,20 @@ module Models
     end
 
     def price
-      (car.price_per_day * duration) + (distance * car.price_per_km)
+      daily_prices = []
+      (1..duration).each do |day|
+        case day
+        when 1
+          daily_prices << car.price_per_day
+        when 2..4
+          daily_prices << car.price_per_day * 0.9
+        when 5..10
+          daily_prices << car.price_per_day * 0.7
+        else
+          daily_prices << car.price_per_day * 0.5
+        end
+      end
+      daily_prices.inject(:+).floor + (distance * car.price_per_km)
     end
   end
 end
