@@ -1,11 +1,11 @@
 module Models
   class Transaction
-    attr_accessor :rental
+    attr_accessor :item
     attr_accessor :destination, :amount
 
     # all required data
-    def initialize(rental:, destination:, amount:)
-      @rental = rental
+    def initialize(item:, destination:, amount:)
+      @item = item
       @destination = destination
       @amount = amount
     end

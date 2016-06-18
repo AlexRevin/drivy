@@ -5,6 +5,7 @@ module Models
     attr_accessor :car
     attr_accessor :id, :car_id, :start_date, :end_date, :distance, :deductible_reduction
     attr_accessor :transactions
+    attr_accessor :rental_modifications
 
     # Should be read from config or database, but constants are fine for now
     DEDUCTIBLE_FEE_PER_DAY = 400
@@ -24,42 +25,42 @@ module Models
       @transactions = []
     end
 
-    def start_date=(date_str)
-      @start_date = Date.parse date_str
+    def start_date=(date)
+      @start_date = date.is_a?(Date) ? date : Date.parse(date)
     end
 
-    def end_date=(date_str)
-      @end_date = Date.parse date_str
+    def end_date=(date)
+      @end_date = date.is_a?(Date) ? date : Date.parse(date)
     end
 
     def duration
-      (@end_date - @start_date).to_i + 1 # last day included
+      (end_date - start_date).to_i + 1 # last day included
+    end
+
+    def actors
+      [ :driver, :owner, :insurance, :assistance, :drivy ]
     end
 
     def distribute_funds!
-      [ :driver,
-        :owner,
-        :insurance,
-        :assistance,
-        :drivy
-      ].each do |destination|
-        case destination
+      actors.each do |destination|
+        amount = case destination
         when :driver
-          @transactions << Models::Transaction.new(rental: self, destination: destination, amount: -driver_price)
+          -driver_price
         when :owner
-          @transactions << Models::Transaction.new(rental: self, destination: destination, amount: to_owner)
+          to_owner
         when :insurance
-          @transactions << Models::Transaction.new(rental: self, destination: destination, amount: commission[:insurance_fee])
+          commission[:insurance_fee]
         when :assistance
-          @transactions << Models::Transaction.new(rental: self, destination: destination, amount: commission[:assistance_fee])
+          commission[:assistance_fee]
         when :drivy
-          @transactions << Models::Transaction.new(rental: self, destination: destination, amount: drivy_profit)
+          drivy_profit
         end
+        @transactions << Models::Transaction.new(item: self, destination: destination, amount: amount)
       end
     end
 
     def deductible_fee
-      if @deductible_reduction
+      if deductible_reduction
         duration * DEDUCTIBLE_FEE_PER_DAY
       else
         0
