@@ -4,6 +4,7 @@ module Models
   class Rental
     attr_accessor :car
     attr_accessor :id, :car_id, :start_date, :end_date, :distance, :deductible_reduction
+    attr_accessor :transactions
 
     # Should be read from config or database, but constants are fine for now
     DEDUCTIBLE_FEE_PER_DAY = 400
@@ -20,6 +21,7 @@ module Models
       data.each_pair do |k, v| 
         self.send "#{k}=".to_sym , v
       end
+      @transactions = []
     end
 
     def start_date=(date_str)
@@ -34,6 +36,28 @@ module Models
       (@end_date - @start_date).to_i + 1 # last day included
     end
 
+    def distribute_funds!
+      [ :driver,
+        :owner,
+        :insurance,
+        :assistance,
+        :drivy
+      ].each do |destination|
+        case destination
+        when :driver
+          @transactions << Models::Transaction.new(rental: self, destination: destination, amount: -driver_price)
+        when :owner
+          @transactions << Models::Transaction.new(rental: self, destination: destination, amount: to_owner)
+        when :insurance
+          @transactions << Models::Transaction.new(rental: self, destination: destination, amount: commission[:insurance_fee])
+        when :assistance
+          @transactions << Models::Transaction.new(rental: self, destination: destination, amount: commission[:assistance_fee])
+        when :drivy
+          @transactions << Models::Transaction.new(rental: self, destination: destination, amount: drivy_profit)
+        end
+      end
+    end
+
     def deductible_fee
       if @deductible_reduction
         duration * DEDUCTIBLE_FEE_PER_DAY
@@ -42,8 +66,20 @@ module Models
       end
     end
 
+    def driver_price
+      price + deductible_fee
+    end
+
+    def drivy_profit
+      commission[:drivy_fee] + deductible_fee
+    end
+
+    def to_owner
+      price - (price * PROFIT_MARGIN).floor
+    end
+
     def commission
-      income = price * PROFIT_MARGIN
+      income = price - to_owner
       [:insurance_fee, :assistance_fee, :drivy_fee].inject({}) do |sum, n|
         case n
         when :insurance_fee
