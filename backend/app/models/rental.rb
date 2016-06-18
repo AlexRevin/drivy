@@ -3,7 +3,18 @@ require "date"
 module Models
   class Rental
     attr_accessor :car
-    attr_accessor :id, :car_id, :start_date, :end_date, :distance
+    attr_accessor :id, :car_id, :start_date, :end_date, :distance, :deductible_reduction
+
+    # Should be read from config or database, but constants are fine for now
+    DEDUCTIBLE_FEE_PER_DAY = 400
+    PROFIT_MARGIN     = 0.3
+    INSURANCE_PERCENT = 0.5
+    ASSISTANCE_FEE    = 100
+    DAY_DISCOUNTS     = {
+      "2..4"  => 0.9,
+      "5..10" => 0.7,
+      "10+"   => 0.5
+    }
 
     def initialize data
       data.each_pair do |k, v| 
@@ -23,18 +34,26 @@ module Models
       (@end_date - @start_date).to_i + 1 # last day included
     end
 
+    def deductible_fee
+      if @deductible_reduction
+        duration * DEDUCTIBLE_FEE_PER_DAY
+      else
+        0
+      end
+    end
+
     def commission
-      profit = price * 0.3
+      income = price * PROFIT_MARGIN
       [:insurance_fee, :assistance_fee, :drivy_fee].inject({}) do |sum, n|
         case n
         when :insurance_fee
-          sum[n] = (profit - (profit *= 0.5)).ceil # no extra penny for gangsters
+          sum[n] = (income - (income *= INSURANCE_PERCENT)).ceil # no extra penny for gangsters
         when :assistance_fee
-          sum[n] = (profit - (profit -= 100 * duration )).ceil
+          sum[n] = (income - (income -= ASSISTANCE_FEE * duration )).ceil
         else
           # this is obviously not correct, watch Office Space movie
           # for careful accounting, matters of cents do count as well
-          sum[n] = profit.floor
+          sum[n] = income.floor
         end
         sum
       end
@@ -47,11 +66,11 @@ module Models
         when 1
           daily_prices << car.price_per_day
         when 2..4
-          daily_prices << car.price_per_day * 0.9
+          daily_prices << car.price_per_day * DAY_DISCOUNTS["2..4"]
         when 5..10
-          daily_prices << car.price_per_day * 0.7
+          daily_prices << car.price_per_day * DAY_DISCOUNTS["5..10"]
         else
-          daily_prices << car.price_per_day * 0.5
+          daily_prices << car.price_per_day * DAY_DISCOUNTS["10+"]
         end
       end
       daily_prices.inject(:+).floor + (distance * car.price_per_km)
